@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulador de Planta · Tortillería La Central</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+  :root {
+    --corn:#F5C518; --ink:#1A1A1A; --ash:#F0EDE6; --mist:#E4E0D8; --smoke:#9A9589; --white:#FDFCFA;
+    --c20:#C84B11; --c16:#5B4FCF; --c12:#B07000; --c10:#1A7A52; --ok:#1A7A52; --err:#C0392B;
+    --radius:6px; --mono:'IBM Plex Mono',monospace; --sans:'IBM Plex Sans',sans-serif;
+  }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:15px;} body{font-family:var(--sans);background:var(--ash);color:var(--ink);min-height:100vh;}
+
+  header{background:var(--ink);padding:1.25rem 2rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;}
+  .brand{display:flex;align-items:center;gap:12px;}
+  .brand-icon{width:38px;height:38px;background:var(--corn);border-radius:4px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:500;font-size:18px;color:var(--ink);letter-spacing:-1px;}
+  .brand-name{font-size:1rem;font-weight:600;color:#fff;letter-spacing:.01em;}
+  .brand-sub{font-size:.72rem;color:var(--smoke);font-family:var(--mono);letter-spacing:.05em;text-transform:uppercase;margin-top:1px;}
+  .header-badge{background:rgba(245,197,24,.15);border:1px solid rgba(245,197,24,.3);color:var(--corn);font-family:var(--mono);font-size:.7rem;padding:4px 10px;border-radius:99px;letter-spacing:.05em;}
+
+  .tabs{background:var(--ink);border-top:1px solid #2e2e2e;display:flex;padding:0 2rem;}
+  .tab{font-family:var(--mono);font-size:.75rem;letter-spacing:.06em;text-transform:uppercase;color:var(--smoke);padding:.7rem 1.25rem;cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap;}
+  .tab:hover{color:#fff;}
+  .tab.active{color:var(--corn);border-bottom-color:var(--corn);}
+
+  .main{max-width:1100px;margin:0 auto;padding:1.5rem 1.5rem 3rem;}
+  .panel{display:none;} .panel.active{display:block;}
+  .sec-lbl{font-family:var(--mono);font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;color:var(--smoke);margin:1.5rem 0 .6rem;display:flex;align-items:center;gap:8px;}
+  .sec-lbl::after{content:'';flex:1;height:1px;background:var(--mist);}
+  .card{background:var(--white);border:1px solid var(--mist);border-radius:var(--radius);padding:1rem 1.25rem;margin-bottom:10px;}
+
+  .params-row{display:flex;align-items:center;gap:20px;flex-wrap:wrap;}
+  .param-group{display:flex;align-items:center;gap:8px;}
+  .param-group label{font-size:.8rem;color:var(--smoke);white-space:nowrap;}
+  .param-group input[type=range]{width:90px;accent-color:var(--corn);}
+  .param-val{font-family:var(--mono);font-size:.85rem;font-weight:500;min-width:28px;}
+
+  .dem-total-row{display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap;}
+  .dem-total-row label{font-size:.85rem;color:var(--smoke);}
+  input.big-num{font-family:var(--mono);font-size:1.1rem;font-weight:500;width:140px;padding:4px 8px;border:1px solid var(--mist);border-radius:var(--radius);background:var(--ash);color:var(--ink);text-align:right;}
+  .pct-warn{font-family:var(--mono);font-size:.75rem;color:var(--err);}
+  .dem-sliders{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;}
+  .dem-row{display:flex;align-items:center;gap:8px;}
+  .dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+  .dem-row label{font-size:.82rem;color:var(--smoke);min-width:46px;}
+  .dem-row input[type=range]{flex:1;accent-color:var(--corn);}
+  .pct-readout{font-family:var(--mono);font-size:.8rem;font-weight:500;min-width:36px;text-align:right;}
+  .und-readout{font-family:var(--mono);font-size:.72rem;color:var(--smoke);min-width:70px;}
+
+  .metric-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;}
+  .metric{background:var(--ash);border-radius:var(--radius);padding:.85rem 1rem;}
+  .metric .m-lbl{font-size:.72rem;color:var(--smoke);margin-bottom:4px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.05em;}
+  .metric .m-val{font-size:1.3rem;font-weight:600;font-family:var(--mono);}
+  .metric .m-unit{font-size:.7rem;color:var(--smoke);}
+  .metric.ok{background:#EBF5EE;} .metric.err{background:#FAEAEA;}
+  .metric.ok .m-val{color:var(--ok);} .metric.err .m-val{color:var(--err);}
+
+  .machine-card{background:var(--white);border:1px solid var(--mist);border-radius:var(--radius);padding:.85rem 1.1rem;margin-bottom:8px;}
+  .machine-header{display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap;}
+  .machine-name{font-weight:600;font-size:.92rem;min-width:88px;}
+  .size-btns{display:flex;gap:5px;flex-wrap:wrap;}
+  .sz-btn{font-family:var(--mono);font-size:.72rem;padding:3px 10px;border-radius:99px;border:1px solid var(--mist);background:transparent;color:var(--smoke);cursor:pointer;transition:all .12s;}
+  .sz-btn:hover{border-color:var(--ink);color:var(--ink);}
+  .sz-btn.sel20{background:#FEF0EB;color:var(--c20);border-color:var(--c20);font-weight:500;}
+  .sz-btn.sel16{background:#EEEDFE;color:var(--c16);border-color:var(--c16);font-weight:500;}
+  .sz-btn.sel12{background:#FDF3DE;color:var(--c12);border-color:var(--c12);font-weight:500;}
+  .sz-btn.sel10{background:#E4F5ED;color:var(--c10);border-color:var(--c10);font-weight:500;}
+  .sz-btn.off{background:var(--ash);color:var(--smoke);border-color:var(--mist);font-weight:500;}
+  .machine-stats{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:6px;}
+  .stat-item .s-val{font-family:var(--mono);font-weight:500;font-size:.88rem;}
+  .stat-item .s-lbl{font-size:.68rem;color:var(--smoke);}
+  .prog-row{display:flex;align-items:center;gap:8px;}
+  .prog-bg{flex:1;height:4px;background:var(--mist);border-radius:99px;overflow:hidden;}
+  .prog-fill{height:100%;border-radius:99px;transition:width .2s;}
+  .prog-pct{font-family:var(--mono);font-size:.72rem;color:var(--smoke);min-width:28px;}
+
+  .gap-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+  .gap-lbl{font-family:var(--mono);font-size:.72rem;font-weight:500;color:var(--smoke);width:44px;text-align:right;flex-shrink:0;}
+  .gap-track{flex:1;height:22px;background:var(--ash);border-radius:var(--radius);overflow:hidden;position:relative;}
+  .gap-fill{height:100%;display:flex;align-items:center;padding-left:8px;border-radius:var(--radius);transition:width .2s;}
+  .gap-fill span{font-family:var(--mono);font-size:.72rem;color:#fff;white-space:nowrap;}
+  .gap-dem-line{position:absolute;top:0;width:2px;height:100%;background:rgba(0,0,0,.35);}
+  .gap-pill{font-family:var(--mono);font-size:.72rem;padding:2px 8px;border-radius:99px;font-weight:500;white-space:nowrap;min-width:72px;text-align:center;}
+  .gap-pill.ok{background:#EBF5EE;color:var(--ok);} .gap-pill.err{background:#FAEAEA;color:var(--err);}
+
+  /* Panel 2 */
+  .turn-table{width:100%;border-collapse:collapse;font-size:.82rem;}
+  .turn-table th{font-family:var(--mono);font-size:.67rem;letter-spacing:.05em;text-transform:uppercase;color:var(--smoke);padding:6px 8px;border-bottom:1px solid var(--mist);text-align:center;white-space:nowrap;}
+  .turn-table th.left{text-align:left;}
+  .turn-table td{padding:7px 8px;border-bottom:1px solid var(--mist);vertical-align:middle;}
+  .turn-table tr:last-child td{border-bottom:none;}
+  .turn-table td.mname{font-weight:600;font-size:.88rem;}
+  .hr-in{width:52px;text-align:center;font-family:var(--mono);font-size:.82rem;padding:3px 6px;border:1px solid var(--mist);border-radius:var(--radius);background:var(--ash);color:var(--ink);}
+  .hr-in:focus{outline:2px solid var(--corn);border-color:var(--corn);}
+  .und-sub{font-family:var(--mono);font-size:.67rem;color:var(--smoke);margin-top:2px;}
+  .tbar{display:flex;height:10px;border-radius:99px;overflow:hidden;background:var(--mist);min-width:70px;}
+  .tbar-seg{height:100%;transition:width .2s;}
+  .status-badge{font-family:var(--mono);font-size:.7rem;padding:2px 7px;border-radius:99px;white-space:nowrap;}
+  .st-ok{background:#EBF5EE;color:var(--ok);} .st-warn{background:#FDF3DE;color:var(--c12);}
+  .st-err{background:#FAEAEA;color:var(--err);} .st-off{background:var(--ash);color:var(--smoke);}
+  .ctag{display:inline-block;font-family:var(--mono);font-size:.67rem;padding:2px 7px;border-radius:99px;font-weight:500;}
+  .c20t{background:#FEF0EB;color:var(--c20);} .c16t{background:#EEEDFE;color:var(--c16);}
+  .c12t{background:#FDF3DE;color:var(--c12);} .c10t{background:#E4F5ED;color:var(--c10);}
+
+  /* ── PANEL 3: PEDIDOS ── */
+  .pedidos-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:1rem;}
+  .pedidos-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:1rem;}
+  .ped-sum{background:var(--ash);border-radius:var(--radius);padding:.75rem 1rem;}
+  .ped-sum .ps-lbl{font-family:var(--mono);font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;color:var(--smoke);margin-bottom:3px;}
+  .ped-sum .ps-val{font-family:var(--mono);font-size:1.15rem;font-weight:600;}
+  .ped-sum .ps-sub{font-family:var(--mono);font-size:.68rem;color:var(--smoke);}
+  .ped-sum.c20b{background:#FEF0EB;} .ped-sum.c20b .ps-val{color:var(--c20);}
+  .ped-sum.c16b{background:#EEEDFE;} .ped-sum.c16b .ps-val{color:var(--c16);}
+  .ped-sum.c12b{background:#FDF3DE;} .ped-sum.c12b .ps-val{color:var(--c12);}
+  .ped-sum.c10b{background:#E4F5ED;} .ped-sum.c10b .ps-val{color:var(--c10);}
+
+  .pedidos-table{width:100%;border-collapse:collapse;font-size:.85rem;}
+  .pedidos-table thead th{font-family:var(--mono);font-size:.68rem;letter-spacing:.05em;text-transform:uppercase;color:var(--smoke);padding:8px 10px;border-bottom:2px solid var(--mist);text-align:left;white-space:nowrap;}
+  .pedidos-table thead th:not(:first-child){text-align:center;}
+  .pedidos-table tbody td{padding:8px 10px;border-bottom:1px solid var(--mist);vertical-align:middle;}
+  .pedidos-table tbody tr:last-child td{border-bottom:none;}
+  .pedidos-table tbody tr:hover{background:var(--ash);}
+  .ped-num{font-family:var(--mono);font-size:.75rem;color:var(--smoke);width:24px;}
+  input.ped-name{width:100%;font-size:.85rem;padding:5px 8px;border:1px solid var(--mist);border-radius:var(--radius);background:var(--ash);color:var(--ink);font-family:var(--sans);}
+  input.ped-name:focus{outline:2px solid var(--corn);border-color:var(--corn);background:var(--white);}
+  input.ped-qty{width:90px;text-align:right;font-family:var(--mono);font-size:.85rem;padding:5px 8px;border:1px solid var(--mist);border-radius:var(--radius);background:var(--ash);color:var(--ink);}
+  input.ped-qty:focus{outline:2px solid var(--corn);border-color:var(--corn);background:var(--white);}
+  select.ped-tam{font-family:var(--mono);font-size:.82rem;padding:5px 8px;border:1px solid var(--mist);border-radius:var(--radius);background:var(--ash);color:var(--ink);cursor:pointer;}
+  select.ped-tam:focus{outline:2px solid var(--corn);}
+  .ped-subtotal{font-family:var(--mono);font-size:.82rem;font-weight:500;text-align:center;}
+  .ped-clear{background:none;border:none;color:var(--smoke);cursor:pointer;font-size:1rem;padding:2px 6px;border-radius:var(--radius);transition:color .12s;}
+  .ped-clear:hover{color:var(--err);}
+  .ped-tag{display:inline-block;font-family:var(--mono);font-size:.68rem;padding:2px 8px;border-radius:99px;font-weight:500;}
+
+  /* Gráfico de pedidos por cliente */
+  .client-bar-row{display:flex;align-items:center;gap:8px;margin-bottom:7px;}
+  .client-lbl{font-size:.78rem;color:var(--ink);min-width:160px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .client-track{flex:1;height:18px;background:var(--ash);border-radius:var(--radius);overflow:hidden;display:flex;}
+  .client-seg{height:100%;transition:width .2s;}
+  .client-total{font-family:var(--mono);font-size:.72rem;color:var(--smoke);min-width:64px;text-align:right;}
+
+  .add-btn{font-family:var(--mono);font-size:.75rem;padding:6px 14px;border:1px dashed var(--mist);border-radius:var(--radius);background:transparent;color:var(--smoke);cursor:pointer;transition:all .12s;}
+  .add-btn:hover{border-color:var(--corn);color:var(--corn);}
+
+  @media(max-width:640px){
+    header{padding:1rem;} .main{padding:1rem .75rem 2rem;} .tabs{padding:0 .5rem;} .tab{padding:.6rem .75rem;font-size:.67rem;}
+    .client-lbl{min-width:90px;max-width:90px;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="brand-icon">LC</div>
+    <div class="brand-text">
+      <div class="brand-name">Tortillería La Central</div>
+      <div class="brand-sub">Simulador de capacidad de planta</div>
+    </div>
+  </div>
+  <div class="header-badge">5 máquinas · 4 presentaciones</div>
+</header>
+
+<div class="tabs">
+  <div class="tab active"  onclick="switchTab(0)">Modo tamaño único</div>
+  <div class="tab"         onclick="switchTab(1)">Turno dividido</div>
+  <div class="tab"         onclick="switchTab(2)">Pedidos de clientes</div>
+</div>
+
+<div class="main">
+
+<!-- ══════════ PANEL 1: TAMAÑO ÚNICO ══════════ -->
+<div class="panel active" id="panel0">
+  <div class="sec-lbl">Parámetros de operación</div>
+  <div class="card">
+    <div class="params-row">
+      <div class="param-group"><label>Horas / turno</label><input type="range" id="p1_h" min="1" max="24" value="8" step="1" oninput="p1Recalc()"><span class="param-val" id="p1_h_v">8</span></div>
+      <div class="param-group"><label>Eficiencia %</label><input type="range" id="p1_ef" min="50" max="100" value="85" step="1" oninput="p1Recalc()"><span class="param-val" id="p1_ef_v">85</span></div>
+      <div class="param-group"><label>Días / semana</label><input type="range" id="p1_ds" min="1" max="7" value="5" step="1" oninput="p1Recalc()"><span class="param-val" id="p1_ds_v">5</span></div>
+    </div>
+  </div>
+  <div class="sec-lbl">Demanda objetivo</div>
+  <div class="card">
+    <div class="dem-total-row">
+      <label>Total tortillas / día</label>
+      <input class="big-num" type="number" id="p1_dem" value="100000" step="1000" oninput="p1Recalc()">
+      <span class="pct-warn" id="p1_pctw"></span>
+    </div>
+    <div class="dem-sliders">
+      <div class="dem-row"><span class="dot" style="background:var(--c20)"></span><label>20 cm</label><input type="range" id="p1_p20" min="0" max="100" value="20" step="1" oninput="p1Recalc()"><span class="pct-readout" id="p1_p20v">20%</span><span class="und-readout" id="p1_d20u"></span></div>
+      <div class="dem-row"><span class="dot" style="background:var(--c16)"></span><label>16 cm</label><input type="range" id="p1_p16" min="0" max="100" value="40" step="1" oninput="p1Recalc()"><span class="pct-readout" id="p1_p16v">40%</span><span class="und-readout" id="p1_d16u"></span></div>
+      <div class="dem-row"><span class="dot" style="background:var(--c12)"></span><label>12 cm</label><input type="range" id="p1_p12" min="0" max="100" value="40" step="1" oninput="p1Recalc()"><span class="pct-readout" id="p1_p12v">40%</span><span class="und-readout" id="p1_d12u"></span></div>
+      <div class="dem-row"><span class="dot" style="background:var(--c10)"></span><label>10 cm</label><input type="range" id="p1_p10" min="0" max="100" value="0"  step="1" oninput="p1Recalc()"><span class="pct-readout" id="p1_p10v">0%</span><span class="und-readout" id="p1_d10u"></span></div>
+    </div>
+  </div>
+  <div class="sec-lbl">Configuración de máquinas</div>
+  <div id="p1_machines"></div>
+  <div class="sec-lbl">Capacidad vs demanda</div>
+  <div id="p1_gap"></div>
+  <div class="sec-lbl">Resumen</div>
+  <div class="metric-row" id="p1_metrics"></div>
+</div>
+
+<!-- ══════════ PANEL 2: TURNO DIVIDIDO ══════════ -->
+<div class="panel" id="panel1">
+  <div class="sec-lbl">Parámetros de operación</div>
+  <div class="card">
+    <div class="params-row">
+      <div class="param-group"><label>Duración turno (hr)</label><input type="range" id="p2_h" min="1" max="24" value="8" step="1" oninput="p2Recalc()"><span class="param-val" id="p2_h_v">8</span></div>
+      <div class="param-group"><label>Eficiencia %</label><input type="range" id="p2_ef" min="50" max="100" value="85" step="1" oninput="p2Recalc()"><span class="param-val" id="p2_ef_v">85</span></div>
+      <div class="param-group"><label>Días / semana</label><input type="range" id="p2_ds" min="1" max="7" value="5" step="1" oninput="p2Recalc()"><span class="param-val" id="p2_ds_v">5</span></div>
+    </div>
+  </div>
+  <div class="sec-lbl">Demanda objetivo</div>
+  <div class="card">
+    <div class="dem-total-row">
+      <label>Total tortillas / día</label>
+      <input class="big-num" type="number" id="p2_dem" value="100000" step="1000" oninput="p2Recalc()">
+      <span class="pct-warn" id="p2_pctw"></span>
+    </div>
+    <div class="dem-sliders">
+      <div class="dem-row"><span class="dot" style="background:var(--c20)"></span><label>20 cm</label><input type="range" id="p2_p20" min="0" max="100" value="20" step="1" oninput="p2Recalc()"><span class="pct-readout" id="p2_p20v">20%</span><span class="und-readout" id="p2_d20u"></span></div>
+      <div class="dem-row"><span class="dot" style="background:var(--c16)"></span><label>16 cm</label><input type="range" id="p2_p16" min="0" max="100" value="40" step="1" oninput="p2Recalc()"><span class="pct-readout" id="p2_p16v">40%</span><span class="und-readout" id="p2_d16u"></span></div>
+      <div class="dem-row"><span class="dot" style="background:var(--c12)"></span><label>12 cm</label><input type="range" id="p2_p12" min="0" max="100" value="40" step="1" oninput="p2Recalc()"><span class="pct-readout" id="p2_p12v">40%</span><span class="und-readout" id="p2_d12u"></span></div>
+      <div class="dem-row"><span class="dot" style="background:var(--c10)"></span><label>10 cm</label><input type="range" id="p2_p10" min="0" max="100" value="0"  step="1" oninput="p2Recalc()"><span class="pct-readout" id="p2_p10v">0%</span><span class="und-readout" id="p2_d10u"></span></div>
+    </div>
+  </div>
+  <div class="sec-lbl">División del turno por máquina y presentación</div>
+  <div class="card" style="overflow-x:auto;">
+    <table class="turn-table">
+      <thead>
+        <tr>
+          <th class="left">Máquina</th><th>Act.</th>
+          <th><span class="ctag c20t">20 cm</span><br>hr / und</th>
+          <th><span class="ctag c16t">16 cm</span><br>hr / und</th>
+          <th><span class="ctag c12t">12 cm</span><br>hr / und</th>
+          <th><span class="ctag c10t">10 cm</span><br>hr / und</th>
+          <th>Hrs usadas</th><th>Distribución</th><th>Estado</th>
+        </tr>
+      </thead>
+      <tbody id="p2_tbody"></tbody>
+    </table>
+  </div>
+  <div class="sec-lbl">Capacidad vs demanda</div>
+  <div id="p2_gap"></div>
+  <div class="sec-lbl">Resumen</div>
+  <div class="metric-row" id="p2_metrics"></div>
+</div>
+
+<!-- ══════════ PANEL 3: PEDIDOS ══════════ -->
+<div class="panel" id="panel2">
+
+  <div class="sec-lbl">Resumen de pedidos</div>
+  <div class="pedidos-summary" id="p3_summary"></div>
+
+  <div class="sec-lbl">Pedidos por cliente</div>
+  <div class="card" style="overflow-x:auto;">
+    <table class="pedidos-table">
+      <thead>
+        <tr>
+          <th style="width:28px;">#</th>
+          <th>Cliente</th>
+          <th style="width:120px;">Cantidad</th>
+          <th style="width:110px;">Presentación</th>
+          <th style="width:110px;">Subtotal</th>
+          <th style="width:36px;"></th>
+        </tr>
+      </thead>
+      <tbody id="p3_tbody"></tbody>
+    </table>
+    <div style="padding:.75rem 0 0;">
+      <button class="add-btn" onclick="addPedido()">+ Agregar cliente</button>
+    </div>
+  </div>
+
+  <div class="sec-lbl">Distribución por cliente</div>
+  <div class="card" id="p3_client_chart"></div>
+
+  <div class="sec-lbl">Capacidad vs pedidos totales</div>
+  <div id="p3_gap"></div>
+
+  <div class="sec-lbl">Parámetros de producción</div>
+  <div class="card">
+    <div class="params-row">
+      <div class="param-group"><label>Horas / turno</label><input type="range" id="p3_h" min="1" max="24" value="8" step="1" oninput="p3Recalc()"><span class="param-val" id="p3_h_v">8</span></div>
+      <div class="param-group"><label>Eficiencia %</label><input type="range" id="p3_ef" min="50" max="100" value="85" step="1" oninput="p3Recalc()"><span class="param-val" id="p3_ef_v">85</span></div>
+      <div class="param-group"><label>Días / semana</label><input type="range" id="p3_ds" min="1" max="7" value="5" step="1" oninput="p3Recalc()"><span class="param-val" id="p3_ds_v">5</span></div>
+    </div>
+    <p style="font-size:.75rem;color:var(--smoke);margin-top:.75rem;font-family:var(--mono);">
+      Capacidad calculada con configuración Lenin 1→16cm · Verduzco 1/2/3→16cm · Lenin 2→16cm (ajustable en pestaña 1)
+    </p>
+  </div>
+  <div class="sec-lbl">Resumen</div>
+  <div class="metric-row" id="p3_metrics"></div>
+</div>
+
+</div><!-- /main -->
+
+<script>
+// ── DATA ──
+const LINEAS=[
+  {nombre:'Lenin 1',    sizes:{20:2400,16:5200,12:4600,10:null}},
+  {nombre:'Verduzco 1', sizes:{20:null,16:2500,12:null,10:2500}},
+  {nombre:'Verduzco 2', sizes:{20:null,16:2500,12:null,10:2500}},
+  {nombre:'Verduzco 3', sizes:{20:null,16:2500,12:null,10:2500}},
+  {nombre:'Lenin 2',    sizes:{20:2000,16:2000,12:2000,10:null}},
+];
+const ALL=[20,16,12,10];
+const BCOL={20:'#C84B11',16:'#5B4FCF',12:'#B07000',10:'#1A7A52'};
+const SCLS={20:'sel20',16:'sel16',12:'sel12',10:'sel10'};
+const PESO={20:.050,16:.035,12:.025,10:.020};
+const TCLS={20:'c20t',16:'c16t',12:'c12t',10:'c10t'};
+const TBCLS={20:'c20b',16:'c16b',12:'c12b',10:'c10b'};
+const TNAMES={20:'20 cm',16:'16 cm',12:'12 cm',10:'10 cm'};
+
+// P1
+const p1sel=LINEAS.map(l=>ALL.filter(s=>l.sizes[s]!==null)[0]);
+const p1act=LINEAS.map(()=>true);
+// P2
+const p2hrs=LINEAS.map(l=>{
+  const av=ALL.filter(s=>l.sizes[s]!==null);
+  const base=parseFloat((8/av.length).toFixed(1));
+  const o={20:0,16:0,12:0,10:0};
+  av.forEach((s,i)=>o[s]=i<av.length-1?base:parseFloat((8-base*(av.length-1)).toFixed(1)));
+  return o;
+});
+const p2act=LINEAS.map(()=>true);
+
+// P3: pedidos
+let pedidos=[
+  {cliente:'La esquina del cacao', qty:20000, tam:20},
+  {cliente:'Barrio Café',          qty:30000, tam:16},
+  {cliente:'La muerta de hambre',  qty:10000, tam:12},
+  {cliente:'',qty:0,tam:16},{cliente:'',qty:0,tam:16},
+  {cliente:'',qty:0,tam:16},{cliente:'',qty:0,tam:16},
+  {cliente:'',qty:0,tam:16},{cliente:'',qty:0,tam:16},
+  {cliente:'',qty:0,tam:16},
+];
+
+// ── TABS ──
+function switchTab(n){
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',i===n));
+  document.querySelectorAll('.panel').forEach((p,i)=>p.classList.toggle('active',i===n));
+  if(n===2) p3Recalc();
+}
+
+// ─── PANEL 1 ───
+function buildP1(){
+  const cont=document.getElementById('p1_machines');cont.innerHTML='';
+  LINEAS.forEach((l,i)=>{
+    const av=ALL.filter(s=>l.sizes[s]!==null);
+    const d=document.createElement('div');d.className='machine-card';
+    let btns=av.map(s=>`<button class="sz-btn" id="p1b_${i}_${s}" onclick="p1Sel(${i},${s})">${s} cm</button>`).join('');
+    btns+=`<button class="sz-btn" id="p1b_${i}_off" onclick="p1SelOff(${i})">Apagar</button>`;
+    d.innerHTML=`<div class="machine-header"><span class="machine-name">${l.nombre}</span><div class="size-btns">${btns}</div></div>
+      <div class="machine-stats" id="p1s_${i}"></div>
+      <div class="prog-row"><div class="prog-bg"><div class="prog-fill" id="p1pf_${i}" style="width:0%"></div></div><span class="prog-pct" id="p1pp_${i}">0%</span></div>`;
+    cont.appendChild(d);
+  });
+}
+function p1Sel(i,s){p1act[i]=true;p1sel[i]=s;p1Recalc();}
+function p1SelOff(i){p1act[i]=false;p1Recalc();}
+function p1Recalc(){
+  const h=+document.getElementById('p1_h').value,ef=+document.getElementById('p1_ef').value/100,ds=+document.getElementById('p1_ds').value;
+  document.getElementById('p1_h_v').textContent=h;document.getElementById('p1_ef_v').textContent=Math.round(ef*100);document.getElementById('p1_ds_v').textContent=ds;
+  const dem=Math.max(0,+document.getElementById('p1_dem').value||0);
+  const pcts={20:+document.getElementById('p1_p20').value,16:+document.getElementById('p1_p16').value,12:+document.getElementById('p1_p12').value,10:+document.getElementById('p1_p10').value};
+  const sp=pcts[20]+pcts[16]+pcts[12]+pcts[10];
+  document.getElementById('p1_pctw').textContent=Math.round(sp)!==100?`Suma: ${Math.round(sp)}% ≠ 100%`:'';
+  [20,16,12,10].forEach(t=>{document.getElementById(`p1_p${t}v`).textContent=pcts[t]+'%';document.getElementById(`p1_d${t}u`).textContent='= '+(Math.round(dem*pcts[t]/100)).toLocaleString();});
+  const demPor={};ALL.forEach(t=>demPor[t]=Math.round(dem*pcts[t]/100));
+  let totUnd=0,totKg=0;const byTam={20:0,16:0,12:0,10:0};const undL=[];
+  LINEAS.forEach((l,i)=>{
+    const isOff=!p1act[i],s=p1sel[i],av=ALL.filter(x=>l.sizes[x]!==null);
+    av.forEach(x=>{const btn=document.getElementById(`p1b_${i}_${x}`);btn.className='sz-btn'+(!isOff&&s===x?' '+SCLS[x]:'');});
+    document.getElementById(`p1b_${i}_off`).className='sz-btn'+(isOff?' off':'');
+    let und=0,kg=0;
+    if(!isOff){const uph=l.sizes[s];und=Math.round(uph*h*ef);kg=Math.round(und*PESO[s]);byTam[s]+=und;}
+    undL.push(und);totUnd+=und;totKg+=kg;
+    const st=document.getElementById(`p1s_${i}`);
+    if(isOff){st.innerHTML=`<div class="stat-item"><span class="s-val" style="color:var(--smoke)">Línea apagada</span></div>`;}
+    else{const uph=l.sizes[s];st.innerHTML=`<div class="stat-item"><span class="s-val">${uph.toLocaleString()}</span><div class="s-lbl">und/hr</div></div><div class="stat-item"><span class="s-val">${und.toLocaleString()}</span><div class="s-lbl">und/día</div></div><div class="stat-item"><span class="s-val">${kg.toLocaleString()} kg</span><div class="s-lbl">kg/día</div></div><div class="stat-item"><span class="s-val">${(und*ds).toLocaleString()}</span><div class="s-lbl">und/sem</div></div>`;}
+  });
+  const maxL=Math.max(...undL,1);
+  undL.forEach((u,i)=>{const s=p1sel[i];const pct=u/maxL*100;const pf=document.getElementById(`p1pf_${i}`);const pp=document.getElementById(`p1pp_${i}`);if(pf){pf.style.width=pct.toFixed(1)+'%';pf.style.background=BCOL[s]||'#ccc';}if(pp)pp.textContent=Math.round(pct)+'%';});
+  renderGap('p1_gap',byTam,demPor);renderMetrics('p1_metrics',totUnd,dem,totKg,ds);
+}
+
+// ─── PANEL 2 ───
+function buildP2(){
+  const tb=document.getElementById('p2_tbody');tb.innerHTML='';
+  LINEAS.forEach((l,i)=>{
+    const av=ALL.filter(s=>l.sizes[s]!==null);const tr=document.createElement('tr');
+    let cells=`<td class="mname">${l.nombre}</td><td style="text-align:center;"><input type="checkbox" id="p2act_${i}" checked onchange="p2Recalc()" style="width:15px;height:15px;accent-color:var(--corn);cursor:pointer;"></td>`;
+    ALL.forEach(s=>{
+      if(av.includes(s)){cells+=`<td style="text-align:center;"><input class="hr-in" id="p2hr_${i}_${s}" type="number" min="0" max="24" step="0.5" value="${p2hrs[i][s]}" oninput="p2SetHr(${i},${s},this.value)"><div class="und-sub" id="p2und_${i}_${s}">—</div></td>`;}
+      else{cells+=`<td style="text-align:center;"><span style="color:var(--mist);font-size:.8rem;">—</span></td>`;}
+    });
+    cells+=`<td style="text-align:center;" id="p2htot_${i}">—</td><td><div class="tbar" id="p2tbar_${i}"></div></td><td id="p2st_${i}"></td>`;
+    tr.innerHTML=cells;tb.appendChild(tr);
+  });
+}
+function p2SetHr(i,s,v){p2hrs[i][s]=Math.max(0,parseFloat(v)||0);p2Recalc();}
+function p2Recalc(){
+  const turno=+document.getElementById('p2_h').value,ef=+document.getElementById('p2_ef').value/100,ds=+document.getElementById('p2_ds').value;
+  document.getElementById('p2_h_v').textContent=turno;document.getElementById('p2_ef_v').textContent=Math.round(ef*100);document.getElementById('p2_ds_v').textContent=ds;
+  const dem=Math.max(0,+document.getElementById('p2_dem').value||0);
+  const pcts={20:+document.getElementById('p2_p20').value,16:+document.getElementById('p2_p16').value,12:+document.getElementById('p2_p12').value,10:+document.getElementById('p2_p10').value};
+  const sp=pcts[20]+pcts[16]+pcts[12]+pcts[10];
+  document.getElementById('p2_pctw').textContent=Math.round(sp)!==100?`Suma: ${Math.round(sp)}% ≠ 100%`:'';
+  [20,16,12,10].forEach(t=>{document.getElementById(`p2_p${t}v`).textContent=pcts[t]+'%';document.getElementById(`p2_d${t}u`).textContent='= '+(Math.round(dem*pcts[t]/100)).toLocaleString();});
+  const demPor={};ALL.forEach(t=>demPor[t]=Math.round(dem*pcts[t]/100));
+  let totUnd=0,totKg=0;const byTam={20:0,16:0,12:0,10:0};
+  LINEAS.forEach((l,i)=>{
+    const isOff=!document.getElementById(`p2act_${i}`).checked;
+    const av=ALL.filter(s=>l.sizes[s]!==null);
+    let usadas=0;av.forEach(s=>usadas+=(p2hrs[i][s]||0));usadas=Math.round(usadas*10)/10;
+    const excede=usadas>turno+.01;
+    const he=document.getElementById(`p2htot_${i}`);if(he)he.innerHTML=`<span style="font-family:var(--mono);font-size:.8rem;font-weight:500;color:${excede?'var(--err)':'var(--ink)'};">${usadas.toFixed(1)} hr</span>`;
+    const tb=document.getElementById(`p2tbar_${i}`);
+    if(tb){let bh='';av.forEach(s=>{const pct=turno>0?Math.min((p2hrs[i][s]||0)/turno*100,100):0;bh+=`<div class="tbar-seg" style="width:${pct.toFixed(1)}%;background:${BCOL[s]};"></div>`;});const lib=Math.max(0,turno-usadas);if(turno>0&&lib/turno*100>.5)bh+=`<div class="tbar-seg" style="width:${(lib/turno*100).toFixed(1)}%;background:var(--mist);"></div>`;tb.innerHTML=bh;}
+    const ste=document.getElementById(`p2st_${i}`);
+    if(ste){let cls='st-ok',txt='✓ Completo';if(isOff){cls='st-off';txt='Apagada';}else if(excede){cls='st-err';txt='Excede turno';}else if(usadas<turno-.05){cls='st-warn';txt=`${(turno-usadas).toFixed(1)} hr libres`;}ste.innerHTML=`<span class="status-badge ${cls}">${txt}</span>`;}
+    av.forEach(s=>{const h=isOff?0:Math.min(p2hrs[i][s]||0,turno);const uph=l.sizes[s];const und=Math.round(uph*h*ef);if(!isOff){byTam[s]+=und;totUnd+=und;totKg+=Math.round(und*PESO[s]);}const el=document.getElementById(`p2und_${i}_${s}`);if(el)el.textContent=isOff?'—':und.toLocaleString()+' und';});
+  });
+  renderGap('p2_gap',byTam,demPor);renderMetrics('p2_metrics',totUnd,dem,totKg,ds);
+}
+
+// ─── PANEL 3: PEDIDOS ───
+function addPedido(){
+  if(pedidos.length>=20){alert('Máximo 20 clientes');return;}
+  pedidos.push({cliente:'',qty:0,tam:16});
+  buildP3Table();p3Recalc();
+}
+function removePedido(i){
+  pedidos.splice(i,1);buildP3Table();p3Recalc();
+}
+function setPedidoCliente(i,v){pedidos[i].cliente=v;p3Recalc();}
+function setPedidoQty(i,v){pedidos[i].qty=Math.max(0,parseInt(v)||0);p3Recalc();}
+function setPedidoTam(i,v){pedidos[i].tam=parseInt(v);p3Recalc();}
+
+function buildP3Table(){
+  const tb=document.getElementById('p3_tbody');tb.innerHTML='';
+  pedidos.forEach((p,i)=>{
+    const tr=document.createElement('tr');
+    const tagHtml=`<span class="ped-tag ${TCLS[p.tam]}">${TNAMES[p.tam]}</span>`;
+    tr.innerHTML=`
+      <td class="ped-num">${i+1}</td>
+      <td><input class="ped-name" type="text" placeholder="Nombre del cliente" value="${p.cliente}" oninput="setPedidoCliente(${i},this.value)"></td>
+      <td><input class="ped-qty" type="number" min="0" step="100" value="${p.qty||''}" placeholder="0" oninput="setPedidoQty(${i},this.value)"></td>
+      <td style="text-align:center;">
+        <select class="ped-tam" onchange="setPedidoTam(${i},this.value)">
+          <option value="20" ${p.tam===20?'selected':''}>20 cm</option>
+          <option value="16" ${p.tam===16?'selected':''}>16 cm</option>
+          <option value="12" ${p.tam===12?'selected':''}>12 cm</option>
+          <option value="10" ${p.tam===10?'selected':''}>10 cm</option>
+        </select>
+      </td>
+      <td class="ped-subtotal" id="psub_${i}">${p.qty?p.qty.toLocaleString()+' und':'—'}</td>
+      <td><button class="ped-clear" onclick="removePedido(${i})" title="Eliminar">✕</button></td>`;
+    tb.appendChild(tr);
+  });
+}
+
+function p3Recalc(){
+  const h=+document.getElementById('p3_h').value,ef=+document.getElementById('p3_ef').value/100,ds=+document.getElementById('p3_ds').value;
+  document.getElementById('p3_h_v').textContent=h;document.getElementById('p3_ef_v').textContent=Math.round(ef*100);document.getElementById('p3_ds_v').textContent=ds;
+
+  // totales por tamaño
+  const pedTam={20:0,16:0,12:0,10:0};
+  let totalPed=0;
+  pedidos.forEach((p,i)=>{
+    const qty=p.qty||0;
+    pedTam[p.tam]+=qty;totalPed+=qty;
+    const sub=document.getElementById(`psub_${i}`);
+    if(sub){
+      const kg=(qty*PESO[p.tam]).toFixed(0);
+      sub.innerHTML=qty?`<span style="font-weight:500;">${qty.toLocaleString()}</span><br><span style="font-size:.68rem;color:var(--smoke);">${(+kg).toLocaleString()} kg</span>`:'—';
+    }
+  });
+
+  // summary cards
+  const sumEl=document.getElementById('p3_summary');
+  let sc=`<div class="ped-sum"><div class="ps-lbl">Total pedido</div><div class="ps-val">${totalPed.toLocaleString()}</div><div class="ps-sub">unidades</div></div>
+    <div class="ped-sum"><div class="ps-lbl">Clientes activos</div><div class="ps-val">${pedidos.filter(p=>p.qty>0&&p.cliente).length}</div><div class="ps-sub">con pedido</div></div>`;
+  ALL.forEach(t=>{
+    if(pedTam[t]>0) sc+=`<div class="ped-sum ${TBCLS[t]}"><div class="ps-lbl">${TNAMES[t]}</div><div class="ps-val">${pedTam[t].toLocaleString()}</div><div class="ps-sub">${(pedTam[t]*PESO[t]).toFixed(0)} kg</div></div>`;
+  });
+  sumEl.innerHTML=sc;
+
+  // gráfico por cliente
+  const activos=pedidos.filter(p=>p.qty>0&&p.cliente);
+  const maxQty=Math.max(...activos.map(p=>p.qty),1);
+  const chartEl=document.getElementById('p3_client_chart');
+  if(activos.length===0){chartEl.innerHTML=`<p style="font-size:.82rem;color:var(--smoke);text-align:center;padding:1rem;">Ingresa clientes y cantidades para ver la distribución.</p>`;return;}
+  let ch='';
+  activos.sort((a,b)=>b.qty-a.qty).forEach(p=>{
+    const pct=p.qty/maxQty*100;
+    ch+=`<div class="client-bar-row">
+      <span class="client-lbl" title="${p.cliente}">${p.cliente}</span>
+      <div class="client-track">
+        <div class="client-seg" style="width:${pct.toFixed(1)}%;background:${BCOL[p.tam]};"></div>
+      </div>
+      <span class="client-total">${p.qty.toLocaleString()} <span class="ctag ${TCLS[p.tam]}" style="font-size:.62rem;">${TNAMES[p.tam]}</span></span>
+    </div>`;
+  });
+  chartEl.innerHTML=ch;
+
+  // capacidad referencia (configuración de la pestaña 1 — usamos p1 defaults)
+  const capRef={20:0,16:0,12:0,10:0};
+  LINEAS.forEach((l,i)=>{
+    if(!p1act[i])return;
+    const s=p1sel[i],uph=l.sizes[s];
+    const und=Math.round(uph*h*ef);
+    capRef[s]+=und;
+  });
+  const totCap=Object.values(capRef).reduce((a,b)=>a+b,0);
+  const totKg=ALL.reduce((a,t)=>a+Math.round((capRef[t]||0)*PESO[t]),0);
+
+  // gap
+  const maxBar=Math.max(...ALL.map(t=>Math.max(capRef[t]||0,pedTam[t]||0)),1);
+  let gh='';
+  ALL.forEach(t=>{
+    const cap=capRef[t]||0,dem=pedTam[t]||0;
+    if(cap===0&&dem===0)return;
+    const capPct=Math.min(cap/maxBar*100,100),demPct=Math.min(dem/maxBar*100,100);
+    const diff=cap-dem,isOk=diff>=0;
+    gh+=`<div class="gap-row">
+      <span class="gap-lbl">${t} cm</span>
+      <div class="gap-track">
+        <div class="gap-fill" style="width:${capPct.toFixed(1)}%;background:${BCOL[t]};"><span>${cap.toLocaleString()}</span></div>
+        ${dem>0?`<div class="gap-dem-line" style="left:${demPct.toFixed(1)}%;"></div>`:''}
+      </div>
+      <span class="gap-pill ${isOk?'ok':'err'}">${isOk?'+':''}${diff.toLocaleString()}</span>
+    </div>`;
+  });
+  document.getElementById('p3_gap').innerHTML=gh;
+
+  const brecha=totCap-totalPed,isOk=brecha>=0;
+  document.getElementById('p3_metrics').innerHTML=`
+    <div class="metric"><div class="m-lbl">Capacidad/día</div><div class="m-val">${totCap.toLocaleString()}</div><div class="m-unit">unidades</div></div>
+    <div class="metric"><div class="m-lbl">Total pedidos</div><div class="m-val">${totalPed.toLocaleString()}</div><div class="m-unit">unidades</div></div>
+    <div class="metric ${isOk?'ok':'err'}"><div class="m-lbl">Brecha</div><div class="m-val">${isOk?'+':''}${brecha.toLocaleString()}</div><div class="m-unit">${isOk?'superávit':'déficit'}</div></div>
+    <div class="metric"><div class="m-lbl">Kg / día</div><div class="m-val">${totKg.toLocaleString()}</div><div class="m-unit">kg</div></div>
+    <div class="metric"><div class="m-lbl">Und / semana</div><div class="m-val">${(totCap*ds).toLocaleString()}</div><div class="m-unit">${ds} días hábiles</div></div>`;
+}
+
+// ─── SHARED ───
+function renderGap(id,byTam,demPor){
+  const maxBar=Math.max(...ALL.map(t=>Math.max(byTam[t]||0,demPor[t]||0)),1);
+  let html='';
+  ALL.forEach(t=>{
+    const cap=byTam[t]||0,dem=demPor[t]||0;if(cap===0&&dem===0)return;
+    const capPct=Math.min(cap/maxBar*100,100),demPct=Math.min(dem/maxBar*100,100),diff=cap-dem,isOk=diff>=0;
+    html+=`<div class="gap-row"><span class="gap-lbl">${t} cm</span><div class="gap-track"><div class="gap-fill" style="width:${capPct.toFixed(1)}%;background:${BCOL[t]};"><span>${cap.toLocaleString()}</span></div>${dem>0?`<div class="gap-dem-line" style="left:${demPct.toFixed(1)}%;"></div>`:''}</div><span class="gap-pill ${isOk?'ok':'err'}">${isOk?'+':''}${diff.toLocaleString()}</span></div>`;
+  });
+  document.getElementById(id).innerHTML=html;
+}
+function renderMetrics(id,totUnd,dem,totKg,ds){
+  const brecha=totUnd-dem,isOk=brecha>=0;
+  document.getElementById(id).innerHTML=`
+    <div class="metric"><div class="m-lbl">Capacidad/día</div><div class="m-val">${totUnd.toLocaleString()}</div><div class="m-unit">unidades</div></div>
+    <div class="metric"><div class="m-lbl">Demanda/día</div><div class="m-val">${dem.toLocaleString()}</div><div class="m-unit">unidades</div></div>
+    <div class="metric ${isOk?'ok':'err'}"><div class="m-lbl">Brecha</div><div class="m-val">${isOk?'+':''}${brecha.toLocaleString()}</div><div class="m-unit">${isOk?'superávit':'déficit'}</div></div>
+    <div class="metric"><div class="m-lbl">Kg / día</div><div class="m-val">${totKg.toLocaleString()}</div><div class="m-unit">kg</div></div>
+    <div class="metric"><div class="m-lbl">Und / semana</div><div class="m-val">${(totUnd*ds).toLocaleString()}</div><div class="m-unit">${ds} días</div></div>`;
+}
+
+// ── INIT ──
+buildP1();buildP2();buildP3Table();
+p1Recalc();p2Recalc();p3Recalc();
+</script>
+</body>
+</html>
